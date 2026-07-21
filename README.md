@@ -76,11 +76,9 @@ ghcr.io/<github-owner>/remote-dev-toolbox
 
 | 事件 | 行为 | 标签 |
 | --- | --- | --- |
-| Pull Request 到 `main` | 仅构建，不登录、不推送 | 不发布 |
-| Push 到 `main` | 推送 GHCR 和 Docker Hub | `latest`、`sha-<commit>` |
-| Push tag `v1.2.3` | 推送 GHCR 和 Docker Hub | `1.2.3`、`1.2`、`1`、`sha-<commit>` |
+| Push tag `v1.2.3` | 构建并推送 GHCR 和 Docker Hub | `latest`、`1.2.3`、`1.2`、`1`、`sha-<commit>` |
 
-`latest` 始终表示 `main` 当前构建，版本 tag 不覆盖它。tag 必须符合严格的 `vMAJOR.MINOR.PATCH` 三段格式。
+普通分支提交和 Pull Request 不触发镜像构建。只有推送符合严格 `vMAJOR.MINOR.PATCH` 三段格式的 tag 才会构建和发布；最新版本 tag 同时更新 `latest`。
 
 GitHub 仓库需要：
 
@@ -103,7 +101,7 @@ docker pull ghcr.io/<github-owner>/remote-dev-toolbox:1.0.0
 docker pull <dockerhub-username>/remote-dev-toolbox:1.0.0
 ```
 
-工作流对 PR 不执行 Registry 登录，也不会向不受信任的 fork PR 暴露 Docker Hub Secrets。
+工作流只在受控的版本 tag 推送时登录 Registry 和读取 Docker Hub Secrets。
 
 ## 使用图形化 Docker 管理器
 
