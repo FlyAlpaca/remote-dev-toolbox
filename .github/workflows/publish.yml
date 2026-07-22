@@ -75,3 +75,39 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }}
           cache-from: type=gha,scope=remote-dev-toolbox
           cache-to: type=gha,mode=max,scope=remote-dev-toolbox
+
+      - name: Build local image tarball
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --load \
+            --tag "${{ env.IMAGE_NAME }}:${GITHUB_REF_NAME}" \
+            .
+          docker save "${{ env.IMAGE_NAME }}:${GITHUB_REF_NAME}" -o image.tar
+
+      - name: Upload image tarball as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tarball
+          path: image.tar
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download image tarball
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tarball
+          path: dist
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: dist/image.tar
