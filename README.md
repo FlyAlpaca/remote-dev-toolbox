@@ -68,8 +68,8 @@ linux/amd64
 GitHub Actions 工作流位于 `.github/workflows/publish.yml`，会同时发布到：
 
 ```text
-ghcr.io/<github-owner>/remote-dev-toolbox
-<dockerhub-username>/remote-dev-toolbox
+ghcr.io/FlyAlpaca/remote-dev-toolbox
+haobiubiu/remote-dev-toolbox
 ```
 
 触发和标签规则：
@@ -90,15 +90,15 @@ GitHub 仓库需要：
 拉取 main 最新镜像：
 
 ```bash
-docker pull ghcr.io/<github-owner>/remote-dev-toolbox:latest
-docker pull <dockerhub-username>/remote-dev-toolbox:latest
+docker pull ghcr.io/FlyAlpaca/remote-dev-toolbox:latest
+docker pull haobiubiu/remote-dev-toolbox:latest
 ```
 
 拉取固定版本：
 
 ```bash
-docker pull ghcr.io/<github-owner>/remote-dev-toolbox:1.0.0
-docker pull <dockerhub-username>/remote-dev-toolbox:1.0.0
+docker pull ghcr.io/FlyAlpaca/remote-dev-toolbox:1.0.0
+docker pull haobiubiu/remote-dev-toolbox:1.0.0
 ```
 
 工作流只在受控的版本 tag 推送时登录 Registry 和读取 Docker Hub Secrets。
