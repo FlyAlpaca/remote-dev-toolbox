@@ -5,11 +5,86 @@ set -euo pipefail
 : "${USER_UID:=1000}"
 : "${USER_GID:=1000}"
 : "${PROJECT_ROOT:=/workspace}"
+: "${PROXY:=}"
+: "${PROXY_PORT:=}"
+: "${NO_PROXY:=localhost,127.0.0.1,::1}"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "entrypoint must run as root so it can configure the SSH user" >&2
   exit 1
 fi
+
+configure_proxy() {
+  local proxy_url
+
+  if [ -z "${PROXY}" ] && [ -z "${PROXY_PORT}" ]; then
+    return
+  fi
+  if [ -z "${PROXY}" ] || [ -z "${PROXY_PORT}" ]; then
+    echo "PROXY and PROXY_PORT must be provided together" >&2
+    exit 1
+  fi
+  if ! [[ "${PROXY}" =~ ^(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9._-]+)$ ]]; then
+    echo "PROXY must be a hostname or IP address without a URL scheme" >&2
+    exit 1
+  fi
+  if ! [[ "${PROXY_PORT}" =~ ^[0-9]+$ ]] || \
+     [ "${PROXY_PORT}" -lt 1 ] || [ "${PROXY_PORT}" -gt 65535 ]; then
+    echo "PROXY_PORT must be an integer between 1 and 65535" >&2
+    exit 1
+  fi
+  if ! [[ "${NO_PROXY}" =~ ^[A-Za-z0-9.,_:\*/\[\]-]+$ ]]; then
+    echo "NO_PROXY contains unsupported characters" >&2
+    exit 1
+  fi
+
+  proxy_url="http://${PROXY}:${PROXY_PORT}"
+  export HTTP_PROXY="${proxy_url}" HTTPS_PROXY="${proxy_url}" ALL_PROXY="${proxy_url}"
+  export http_proxy="${proxy_url}" https_proxy="${proxy_url}" all_proxy="${proxy_url}"
+  export NO_PROXY no_proxy="${NO_PROXY}"
+
+  touch /etc/environment
+  sed -i -E \
+    '/^(HTTP_PROXY|HTTPS_PROXY|ALL_PROXY|NO_PROXY|http_proxy|https_proxy|all_proxy|no_proxy)=/d' \
+    /etc/environment
+  printf '%s\n' \
+    "HTTP_PROXY=\"${proxy_url}\"" \
+    "HTTPS_PROXY=\"${proxy_url}\"" \
+    "ALL_PROXY=\"${proxy_url}\"" \
+    "NO_PROXY=\"${NO_PROXY}\"" \
+    "http_proxy=\"${proxy_url}\"" \
+    "https_proxy=\"${proxy_url}\"" \
+    "all_proxy=\"${proxy_url}\"" \
+    "no_proxy=\"${NO_PROXY}\"" \
+    >> /etc/environment
+
+  printf '%s\n' \
+    "export HTTP_PROXY=\"${proxy_url}\"" \
+    "export HTTPS_PROXY=\"${proxy_url}\"" \
+    "export ALL_PROXY=\"${proxy_url}\"" \
+    "export NO_PROXY=\"${NO_PROXY}\"" \
+    'export http_proxy="$HTTP_PROXY"' \
+    'export https_proxy="$HTTPS_PROXY"' \
+    'export all_proxy="$ALL_PROXY"' \
+    'export no_proxy="$NO_PROXY"' \
+    > /etc/profile.d/10-proxy.sh
+  chmod 0644 /etc/profile.d/10-proxy.sh
+
+  printf '%s\n' \
+    "Acquire::http::Proxy \"${proxy_url}\";" \
+    "Acquire::https::Proxy \"${proxy_url}\";" \
+    > /etc/apt/apt.conf.d/95proxy
+
+  printf '%s\n' \
+    'Defaults env_keep += "HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY"' \
+    'Defaults env_keep += "http_proxy https_proxy all_proxy no_proxy"' \
+    > /etc/sudoers.d/10-proxy-env
+  chmod 0440 /etc/sudoers.d/10-proxy-env
+
+  echo "configured global proxy at ${PROXY}:${PROXY_PORT}"
+}
+
+configure_proxy
 
 if ! [[ "${CONTAINER_USER}" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
   echo "invalid CONTAINER_USER: ${CONTAINER_USER}" >&2
