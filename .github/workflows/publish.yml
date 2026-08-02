@@ -117,6 +117,9 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          make_latest: true
           generate_release_notes: true
           files: |
             dist/${{ env.IMAGE_NAME }}-${{ github.ref_name }}-linux-amd64.tar
