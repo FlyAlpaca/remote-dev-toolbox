@@ -8,6 +8,8 @@ ENV CONTAINER_USER=dev \
     USER_UID=1000 \
     USER_GID=1000 \
     PROJECT_ROOT=${PROJECT_ROOT} \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
     SSH_AUTHORIZED_KEYS_PATH=/run/host/authorized_keys \
     SSH_HOST_KEYS_PATH=/run/host/ssh-host-keys \
     SSH_USER_DATA_PATH=/run/host/user-ssh \
@@ -25,6 +27,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
       openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd \
  && rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/95proxy \
  && rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
+
+# Display UTF-8 paths (including Chinese filenames) directly in Git output.
+RUN git config --system core.quotePath false
 
 # Configure sshd to allow only public-key authentication
 RUN mkdir -p /etc/ssh/sshd_config.d && \
