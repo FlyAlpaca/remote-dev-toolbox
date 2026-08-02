@@ -96,7 +96,7 @@ docker run -d \
   -v "$HOME/.remote-dev/user-ssh:/run/host/user-ssh" \
   -v "$HOME/.vscode-server:/run/host/vscode-server" \
   -v "$HOME/.codex/auth.json:/run/host/codex-auth.json:ro" \
-  remote-dev-toolbox:1.0.10
+  remote-dev-toolbox:1.0.11
 ```
 
 如果不需要代理，删除两行 `PROXY` 参数即可。
@@ -104,13 +104,13 @@ docker run -d \
 ## 构建与发布
 
 ```bash
-docker build -t remote-dev-toolbox:1.0.10 .
+docker build -t remote-dev-toolbox:1.0.11 .
 ```
 
 构建阶段需要 APT 代理时：
 
 ```bash
-docker build -t remote-dev-toolbox:1.0.10 \
+docker build -t remote-dev-toolbox:1.0.11 \
   --build-arg PROXY=<proxy-host> \
   --build-arg PROXY_PORT=<proxy-port> .
 ```
