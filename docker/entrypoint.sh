@@ -161,9 +161,25 @@ else
 fi
 chmod 0440 "/etc/sudoers.d/${CONTAINER_USER}"
 
-mkdir -p "${HOME_DIR}/.ssh" "${HOME_DIR}/.codex" "${PROJECT_ROOT}" /var/run/sshd
-chown "${USER_UID}:${USER_GID}" "${HOME_DIR}" "${HOME_DIR}/.ssh" "${HOME_DIR}/.codex" "${PROJECT_ROOT}"
-chmod 700 "${HOME_DIR}/.ssh" "${HOME_DIR}/.codex"
+mkdir -p "${HOME_DIR}/.codex" "${PROJECT_ROOT}" /var/run/sshd
+chown "${USER_UID}:${USER_GID}" "${HOME_DIR}" "${HOME_DIR}/.codex" "${PROJECT_ROOT}"
+chmod 700 "${HOME_DIR}/.codex"
+
+# Persist the runtime user's SSH keys and config when a data directory is mounted.
+if [ -e "${SSH_USER_DATA_PATH:-}" ]; then
+  if [ ! -d "${SSH_USER_DATA_PATH}" ]; then
+    echo "SSH_USER_DATA_PATH does not point to a directory: ${SSH_USER_DATA_PATH}" >&2
+    exit 1
+  fi
+  chown -R "${USER_UID}:${USER_GID}" "${SSH_USER_DATA_PATH}"
+  chmod 700 "${SSH_USER_DATA_PATH}"
+  rm -rf "${HOME_DIR}/.ssh"
+  ln -s "${SSH_USER_DATA_PATH}" "${HOME_DIR}/.ssh"
+else
+  mkdir -p "${HOME_DIR}/.ssh"
+  chown "${USER_UID}:${USER_GID}" "${HOME_DIR}/.ssh"
+  chmod 700 "${HOME_DIR}/.ssh"
+fi
 
 install_private_file() {
   local source_path=$1

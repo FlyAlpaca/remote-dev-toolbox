@@ -10,6 +10,7 @@ ENV CONTAINER_USER=dev \
     PROJECT_ROOT=${PROJECT_ROOT} \
     SSH_AUTHORIZED_KEYS_PATH=/run/host/authorized_keys \
     SSH_HOST_KEYS_PATH=/run/host/ssh-host-keys \
+    SSH_USER_DATA_PATH=/run/host/user-ssh \
     VSCODE_SERVER_PATH=/run/host/vscode-server \
     CODEX_AUTH_PATH=/run/host/codex-auth.json \
     HOST_SHADOW_PATH=/run/host/shadow
