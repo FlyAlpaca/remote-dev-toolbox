@@ -15,7 +15,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 configure_proxy() {
-  local proxy_url
+  local proxy_url environment_no_proxy shell_no_proxy
 
   if [ -z "${PROXY}" ] && [ -z "${PROXY_PORT}" ]; then
     return
@@ -33,12 +33,16 @@ configure_proxy() {
     echo "PROXY_PORT must be an integer between 1 and 65535" >&2
     exit 1
   fi
-  if ! [[ "${NO_PROXY}" =~ ^[A-Za-z0-9.,_:\*/\[\]-]+$ ]]; then
-    echo "NO_PROXY contains unsupported characters" >&2
+  if [[ "${NO_PROXY}" =~ [[:cntrl:]] ]]; then
+    echo "NO_PROXY must not contain control characters" >&2
     exit 1
   fi
 
   proxy_url="http://${PROXY}:${PROXY_PORT}"
+  environment_no_proxy=${NO_PROXY//\\/\\\\}
+  environment_no_proxy=${environment_no_proxy//\"/\\\"}
+  printf -v shell_no_proxy '%q' "${NO_PROXY}"
+
   export HTTP_PROXY="${proxy_url}" HTTPS_PROXY="${proxy_url}" ALL_PROXY="${proxy_url}"
   export http_proxy="${proxy_url}" https_proxy="${proxy_url}" all_proxy="${proxy_url}"
   export NO_PROXY no_proxy="${NO_PROXY}"
@@ -51,18 +55,18 @@ configure_proxy() {
     "HTTP_PROXY=\"${proxy_url}\"" \
     "HTTPS_PROXY=\"${proxy_url}\"" \
     "ALL_PROXY=\"${proxy_url}\"" \
-    "NO_PROXY=\"${NO_PROXY}\"" \
+    "NO_PROXY=\"${environment_no_proxy}\"" \
     "http_proxy=\"${proxy_url}\"" \
     "https_proxy=\"${proxy_url}\"" \
     "all_proxy=\"${proxy_url}\"" \
-    "no_proxy=\"${NO_PROXY}\"" \
+    "no_proxy=\"${environment_no_proxy}\"" \
     >> /etc/environment
 
   printf '%s\n' \
     "export HTTP_PROXY=\"${proxy_url}\"" \
     "export HTTPS_PROXY=\"${proxy_url}\"" \
     "export ALL_PROXY=\"${proxy_url}\"" \
-    "export NO_PROXY=\"${NO_PROXY}\"" \
+    "export NO_PROXY=${shell_no_proxy}" \
     'export http_proxy="$HTTP_PROXY"' \
     'export https_proxy="$HTTPS_PROXY"' \
     'export all_proxy="$ALL_PROXY"' \
