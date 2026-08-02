@@ -9,6 +9,7 @@ ENV CONTAINER_USER=dev \
     USER_GID=1000 \
     PROJECT_ROOT=${PROJECT_ROOT} \
     SSH_AUTHORIZED_KEYS_PATH=/run/host/authorized_keys \
+    SSH_HOST_KEYS_PATH=/run/host/ssh-host-keys \
     VSCODE_SERVER_PATH=/run/host/vscode-server \
     CODEX_AUTH_PATH=/run/host/codex-auth.json \
     HOST_SHADOW_PATH=/run/host/shadow
@@ -21,7 +22,8 @@ RUN if [ -n "$PROXY" ]; then \
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && apt-get install -y --no-install-recommends \
       openssh-server sudo git curl wget ca-certificates gnupg build-essential passwd \
- && rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/95proxy
+ && rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/95proxy \
+ && rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
 
 # Configure sshd to allow only public-key authentication
 RUN mkdir -p /etc/ssh/sshd_config.d && \
