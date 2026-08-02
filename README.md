@@ -7,7 +7,7 @@
 在仓库根目录准备挂载源：
 
 ```bash
-mkdir -p workspace .vscode-server
+mkdir -p workspace .vscode-server ssh-host-keys
 test -f authorized_keys
 test -f auth.json
 ```
@@ -53,6 +53,7 @@ docker compose exec remote-dev bash -lc 'env | grep -i _proxy; curl -v https://w
 | `CONTAINER_USER` | `dev` | SSH 开发用户 |
 | `USER_UID` / `USER_GID` | `1000` | 建议设为项目目录所有者的 UID/GID |
 | `PROJECT_ROOT` | `/workspace` | 容器工作目录 |
+| `SSH_HOST_KEYS_PATH` | `/run/host/ssh-host-keys` | 持久化 SSH 服务端身份的密钥目录 |
 | `PROXY` / `PROXY_PORT` | 空 | HTTP(S) 代理主机和端口 |
 | `NO_PROXY` | `localhost,127.0.0.1,::1` | 不经过代理的地址 |
 
@@ -62,16 +63,20 @@ docker compose exec remote-dev bash -lc 'env | grep -i _proxy; curl -v https://w
 | --- | --- | --- |
 | `./workspace` | `/workspace` | 读写 |
 | `./authorized_keys` | `/run/host/authorized_keys` | 只读 |
+| `./ssh-host-keys` | `/run/host/ssh-host-keys` | 读写，仅宿主机管理员可访问 |
 | `./.vscode-server` | `/run/host/vscode-server` | 读写 |
 | `./auth.json` | `/run/host/codex-auth.json` | 只读 |
 
 图形化 Docker 管理器使用相同的环境变量和映射即可；容器保持以 root 启动，入口脚本会创建实际开发用户。不要覆盖镜像默认命令。
+
+首次启动时，入口脚本会在挂载的 `ssh-host-keys` 目录生成 SSH 主机密钥；以后重建容器会继续使用同一套密钥，客户端的 `known_hosts` 不会再因重建而失效。该目录包含服务端私钥，不要提交到 Git、共享给其他服务器或以只读方式挂载。若未挂载 `SSH_HOST_KEYS_PATH`，主机密钥会在容器启动时生成并只保存在容器文件系统中，重建容器后会改变。镜像本身不包含主机私钥，避免多个新容器意外共享同一身份。
 
 可选复用宿主机密码时，将 `/etc/shadow` 只读挂载到 `/run/host/shadow`，并设置 `HOST_SHADOW_USER`。该文件高度敏感；未挂载时容器用户使用免密码 sudo。
 
 ## 直接运行
 
 ```bash
+mkdir -p "$HOME/.remote-dev/ssh-host-keys"
 docker run -d \
   --name remote-dev \
   --restart unless-stopped \
@@ -83,6 +88,7 @@ docker run -d \
   -e PROXY_PORT=7890 \
   -v "$HOME/projects/example:/workspace" \
   -v "$HOME/.ssh/authorized_keys:/run/host/authorized_keys:ro" \
+  -v "$HOME/.remote-dev/ssh-host-keys:/run/host/ssh-host-keys" \
   -v "$HOME/.vscode-server:/run/host/vscode-server" \
   -v "$HOME/.codex/auth.json:/run/host/codex-auth.json:ro" \
   remote-dev-toolbox:1.0.0

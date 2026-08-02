@@ -182,6 +182,50 @@ install_private_file() {
   chmod 600 "${target_path}"
 }
 
+configure_ssh_host_keys() {
+  local keys_path=${SSH_HOST_KEYS_PATH:-}
+  local key_type key_bits private_key public_key
+
+  # Without a mounted key directory, keep the keys in the container layer.
+  if [ ! -e "${keys_path}" ]; then
+    ssh-keygen -A
+    return
+  fi
+  if [ ! -d "${keys_path}" ]; then
+    echo "SSH_HOST_KEYS_PATH does not point to a directory: ${keys_path}" >&2
+    exit 1
+  fi
+
+  for key_type in rsa ecdsa ed25519; do
+    private_key="${keys_path}/ssh_host_${key_type}_key"
+    public_key="${private_key}.pub"
+
+    if [ -e "${private_key}" ] && [ ! -f "${private_key}" ]; then
+      echo "SSH host key is not a regular file: ${private_key}" >&2
+      exit 1
+    fi
+    if [ ! -e "${private_key}" ]; then
+      if [ -e "${public_key}" ]; then
+        echo "SSH host public key exists without its private key: ${public_key}" >&2
+        exit 1
+      fi
+      key_bits=()
+      if [ "${key_type}" = rsa ]; then
+        key_bits=(-b 3072)
+      elif [ "${key_type}" = ecdsa ]; then
+        key_bits=(-b 256)
+      fi
+      ssh-keygen -q -t "${key_type}" "${key_bits[@]}" -N '' -f "${private_key}"
+      echo "generated persistent SSH ${key_type} host key in ${keys_path}"
+    elif [ ! -f "${public_key}" ]; then
+      ssh-keygen -y -f "${private_key}" > "${public_key}"
+    fi
+
+    install -o root -g root -m 0600 "${private_key}" "/etc/ssh/ssh_host_${key_type}_key"
+    install -o root -g root -m 0644 "${public_key}" "/etc/ssh/ssh_host_${key_type}_key.pub"
+  done
+}
+
 # Install authorized_keys from a file mounted through the container manager.
 if [ -e "${SSH_AUTHORIZED_KEYS_PATH:-}" ]; then
   install_private_file \
@@ -211,5 +255,5 @@ if [ -e "${CODEX_AUTH_PATH:-}" ]; then
     CODEX_AUTH_PATH
 fi
 
-ssh-keygen -A
+configure_ssh_host_keys
 exec /usr/sbin/sshd -D -e
