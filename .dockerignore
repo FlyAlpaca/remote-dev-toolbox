@@ -20,6 +20,7 @@ authorized_keys
 shadow
 auth.json
 ssh-host-keys/
+user-ssh/
 
 __pycache__
 *.pyc
