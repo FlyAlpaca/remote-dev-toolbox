@@ -263,12 +263,17 @@ if [ -e "${VSCODE_SERVER_PATH:-}" ]; then
   fi
 fi
 
-# Install Codex credentials from a file mounted through the container manager.
-if [ -e "${CODEX_AUTH_PATH:-}" ]; then
-  install_private_file \
-    "${CODEX_AUTH_PATH}" \
-    "${HOME_DIR}/.codex/auth.json" \
-    CODEX_AUTH_PATH
+# Link the complete Codex data directory when mounted. This preserves auth,
+# config, sessions, history, and other Codex state across container recreation.
+if [ -e "${CODEX_DATA_PATH:-}" ]; then
+  if [ ! -d "${CODEX_DATA_PATH}" ]; then
+    echo "CODEX_DATA_PATH does not point to a directory: ${CODEX_DATA_PATH}" >&2
+    exit 1
+  fi
+  chown -R "${USER_UID}:${USER_GID}" "${CODEX_DATA_PATH}"
+  chmod 700 "${CODEX_DATA_PATH}"
+  rm -rf "${HOME_DIR}/.codex"
+  ln -s "${CODEX_DATA_PATH}" "${HOME_DIR}/.codex"
 fi
 
 configure_ssh_host_keys

@@ -16,7 +16,7 @@ id_ed25519
 id_ed25519.*
 authorized_keys
 shadow
-auth.json
+.codex/
 ssh-host-keys/
 user-ssh/
 
