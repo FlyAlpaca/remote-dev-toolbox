@@ -53,6 +53,7 @@ docker compose exec remote-dev bash -lc 'env | grep -i _proxy; curl -v https://w
 | `CONTAINER_USER` | `dev` | SSH 开发用户 |
 | `USER_UID` / `USER_GID` | `1000` | 建议设为项目目录所有者的 UID/GID |
 | `PROJECT_ROOT` | `/workspace` | 容器工作目录 |
+| `PROJECT_STARTUP_SCRIPT` | 空 | 可选的项目启动脚本路径，脚本以开发用户身份运行 |
 | `SSH_HOST_KEYS_PATH` | `/run/host/ssh-host-keys` | 持久化 SSH 服务端身份的密钥目录 |
 | `SSH_USER_DATA_PATH` | `/run/host/user-ssh` | 持久化开发用户的 `~/.ssh` 目录 |
 | `CODEX_DATA_PATH` | `/run/host/codex` | 持久化开发用户的 `~/.codex`，包括配置、会话和凭据 |
@@ -146,6 +147,44 @@ PROXY=host.docker.internal PROXY_PORT=7890 \
 ```
 
 如果不需要代理，可删除 `PROXY` 和 `PROXY_PORT` 两个环境变量，并从配置中删除对应的 `environment` 项。
+
+## 项目启动脚本
+
+镜像不固化具体项目的启动命令。需要自动启动项目服务时，在 Compose 配置中挂载项目自己的脚本，并设置 `PROJECT_STARTUP_SCRIPT`：
+
+```yaml
+services:
+  remote-dev:
+    environment:
+      PROJECT_STARTUP_SCRIPT: /run/host/project-start.sh
+    volumes:
+      - ./project-start.sh:/run/host/project-start.sh:ro
+```
+
+例如 `Stock` 项目的 `project-start.sh`：
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+(
+  cd /workspace/Stock
+  exec .conda/bin/python -m stock_decision.cli serve
+) &
+backend_pid=$!
+
+(
+  cd /workspace/Stock/frontend
+  npm install
+  exec npm run dev
+) &
+frontend_pid=$!
+
+trap 'kill "${backend_pid}" "${frontend_pid}" 2>/dev/null || true' EXIT TERM INT
+wait -n "${backend_pid}" "${frontend_pid}"
+```
+
+启动脚本由入口脚本以 `CONTAINER_USER` 指定的开发用户运行，输出会进入容器日志。未设置 `PROJECT_STARTUP_SCRIPT` 时，容器只启动 SSH 服务。
 
 ## 构建与发布
 

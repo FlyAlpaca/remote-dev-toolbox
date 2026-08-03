@@ -15,6 +15,7 @@ ENV CONTAINER_USER=dev \
     SSH_USER_DATA_PATH=/run/host/user-ssh \
     VSCODE_SERVER_PATH=/run/host/vscode-server \
     CODEX_DATA_PATH=/run/host/codex \
+    PROJECT_STARTUP_SCRIPT= \
     HOST_SHADOW_PATH=/run/host/shadow
 
 # Configure apt proxy if provided
@@ -24,7 +25,7 @@ RUN if [ -n "$PROXY" ]; then \
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && apt-get install -y --no-install-recommends \
-      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales libglib2.0-0 ripgrep \
+      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales libglib2.0-0 ripgrep util-linux \
  && sed -i '/^[# ]*en_US.UTF-8 UTF-8$/s/^# //' /etc/locale.gen \
  && locale-gen en_US.UTF-8 \
  && rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/95proxy \
@@ -70,7 +71,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 22
 
-# Persistent writable directories. Single-file credentials remain explicit read-only bind mounts.
+# Persistent writable directories. Host-managed state is mounted explicitly by the container manager.
 VOLUME ["/workspace", "/run/host/vscode-server"]
 
 WORKDIR ${PROJECT_ROOT}

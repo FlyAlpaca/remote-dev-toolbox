@@ -5,6 +5,7 @@ set -euo pipefail
 : "${USER_UID:=1000}"
 : "${USER_GID:=1000}"
 : "${PROJECT_ROOT:=/workspace}"
+: "${PROJECT_STARTUP_SCRIPT:=}"
 : "${PROXY:=}"
 : "${PROXY_PORT:=}"
 : "${NO_PROXY:=localhost,127.0.0.1,::1}"
@@ -277,4 +278,25 @@ if [ -e "${CODEX_DATA_PATH:-}" ]; then
 fi
 
 configure_ssh_host_keys
+
+if [ -n "${PROJECT_STARTUP_SCRIPT}" ]; then
+  if [ ! -f "${PROJECT_STARTUP_SCRIPT}" ]; then
+    echo "PROJECT_STARTUP_SCRIPT does not point to a file: ${PROJECT_STARTUP_SCRIPT}" >&2
+    exit 1
+  fi
+  if [ ! -r "${PROJECT_STARTUP_SCRIPT}" ]; then
+    echo "PROJECT_STARTUP_SCRIPT is not readable: ${PROJECT_STARTUP_SCRIPT}" >&2
+    exit 1
+  fi
+
+  echo "starting project startup script: ${PROJECT_STARTUP_SCRIPT}"
+  runuser -u "${CONTAINER_USER}" -- env \
+    HOME="${HOME_DIR}" \
+    USER="${CONTAINER_USER}" \
+    LOGNAME="${CONTAINER_USER}" \
+    PROJECT_ROOT="${PROJECT_ROOT}" \
+    PATH="${PATH}" \
+    bash "${PROJECT_STARTUP_SCRIPT}" &
+fi
+
 exec /usr/sbin/sshd -D -e
