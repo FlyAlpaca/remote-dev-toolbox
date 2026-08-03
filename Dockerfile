@@ -24,7 +24,9 @@ RUN if [ -n "$PROXY" ]; then \
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && apt-get install -y --no-install-recommends \
-      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd \
+      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales \
+ && sed -i '/^[# ]*en_US.UTF-8 UTF-8$/s/^# //' /etc/locale.gen \
+ && locale-gen en_US.UTF-8 \
  && rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/95proxy \
  && rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
 
