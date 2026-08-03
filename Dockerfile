@@ -8,6 +8,7 @@ ENV CONTAINER_USER=dev \
     USER_UID=1000 \
     USER_GID=1000 \
     PROJECT_ROOT=${PROJECT_ROOT} \
+    TZ=Asia/Shanghai \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     SSH_AUTHORIZED_KEYS_PATH=/run/host/authorized_keys \
@@ -25,9 +26,11 @@ RUN if [ -n "$PROXY" ]; then \
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && apt-get install -y --no-install-recommends \
-      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales libglib2.0-0 ripgrep util-linux \
+      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales libglib2.0-0 ripgrep util-linux tzdata \
  && sed -i '/^[# ]*en_US.UTF-8 UTF-8$/s/^# //' /etc/locale.gen \
  && locale-gen en_US.UTF-8 \
+ && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+ && echo $TZ > /etc/timezone \
  && rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/95proxy \
  && rm -f /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub
 
