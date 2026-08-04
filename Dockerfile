@@ -8,6 +8,7 @@ ENV CONTAINER_USER=dev \
     USER_UID=1000 \
     USER_GID=1000 \
     PROJECT_ROOT=${PROJECT_ROOT} \
+    CONTAINER_PROMPT=remote-dev \
     TZ=Asia/Shanghai \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -36,6 +37,14 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
 
 # Display UTF-8 paths (including Chinese filenames) directly in Git output.
 RUN git config --system core.quotePath false
+
+RUN printf '%s\n' \
+    '' \
+    '# Container prompt' \
+    'if [[ $- == *i* ]]; then' \
+    '    PS1="\[\e[1;31m\]${CONTAINER_PROMPT}\[\e[0m\] \u@\h:\w\$ "' \
+    'fi' \
+    >> /etc/bash.bashrc
 
 # Configure sshd to allow only public-key authentication
 RUN mkdir -p /etc/ssh/sshd_config.d && \
