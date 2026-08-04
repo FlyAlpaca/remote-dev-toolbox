@@ -16,6 +16,7 @@ ENV CONTAINER_USER=dev \
     SSH_HOST_KEYS_PATH=/run/host/ssh-host-keys \
     SSH_USER_DATA_PATH=/run/host/user-ssh \
     VSCODE_SERVER_PATH=/run/host/vscode-server \
+    CURSOR_SERVER_PATH=/run/host/cursor-server \
     CODEX_DATA_PATH=/run/host/codex \
     PROJECT_STARTUP_SCRIPT= \
     HOST_SHADOW_PATH=/run/host/shadow
@@ -84,7 +85,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 EXPOSE 22
 
 # Persistent writable directories. Host-managed state is mounted explicitly by the container manager.
-VOLUME ["/workspace", "/run/host/vscode-server"]
+VOLUME ["/workspace", "/run/host/vscode-server", "/run/host/cursor-server"]
 
 WORKDIR ${PROJECT_ROOT}
 CMD ["/usr/local/bin/entrypoint.sh"]
