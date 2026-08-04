@@ -52,6 +52,7 @@ docker compose exec remote-dev bash -lc 'env | grep -i _proxy; curl -v https://w
 | --- | --- | --- |
 | `CONTAINER_USER` | `dev` | SSH 开发用户 |
 | `USER_UID` / `USER_GID` | `1000` | 建议设为项目目录所有者的 UID/GID |
+| `CONTAINER_PROMPT` | `remote-dev` | 交互式 Shell 提示符前缀 |
 | `PROJECT_ROOT` | `/workspace` | 容器工作目录 |
 | `PROJECT_STARTUP_SCRIPT` | 空 | 可选的项目启动脚本路径，脚本以开发用户身份运行 |
 | `SSH_HOST_KEYS_PATH` | `/run/host/ssh-host-keys` | 持久化 SSH 服务端身份的密钥目录 |
@@ -100,7 +101,7 @@ docker run -d \
   -v "$HOME/.remote-dev/user-ssh:/run/host/user-ssh" \
   -v "$HOME/.vscode-server:/run/host/vscode-server" \
   -v "$HOME/.codex:/run/host/codex" \
-  remote-dev-toolbox:1.0.18
+  remote-dev-toolbox:1.0.19
 ```
 
 如果不需要代理，删除两行 `PROXY` 参数即可。
@@ -113,7 +114,7 @@ docker run -d \
 services:
   remote-dev:
     build: .
-    image: remote-dev-toolbox:1.0.18
+    image: remote-dev-toolbox:1.0.19
     container_name: remote-dev
     restart: unless-stopped
     ports:
@@ -122,6 +123,7 @@ services:
       CONTAINER_USER: ${CONTAINER_USER:-dev}
       USER_UID: ${USER_UID:-1000}
       USER_GID: ${USER_GID:-1000}
+      CONTAINER_PROMPT: ${CONTAINER_PROMPT:-remote-dev}
       PROXY: ${PROXY:-host.docker.internal}
       PROXY_PORT: ${PROXY_PORT:-7890}
     volumes:
@@ -189,13 +191,13 @@ wait -n "${backend_pid}" "${frontend_pid}"
 ## 构建与发布
 
 ```bash
-docker build -t remote-dev-toolbox:1.0.18 .
+docker build -t remote-dev-toolbox:1.0.19 .
 ```
 
 构建阶段需要 APT 代理时：
 
 ```bash
-docker build -t remote-dev-toolbox:1.0.18 \
+docker build -t remote-dev-toolbox:1.0.19 \
   --build-arg PROXY=<proxy-host> \
   --build-arg PROXY_PORT=<proxy-port> .
 ```
