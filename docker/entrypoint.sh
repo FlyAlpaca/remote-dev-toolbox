@@ -264,6 +264,19 @@ if [ -e "${VSCODE_SERVER_PATH:-}" ]; then
   fi
 fi
 
+# Link a mounted Cursor Server data directory into the runtime user's home.
+if [ -e "${CURSOR_SERVER_PATH:-}" ]; then
+  if [ ! -d "${CURSOR_SERVER_PATH}" ]; then
+    echo "CURSOR_SERVER_PATH does not point to a directory: ${CURSOR_SERVER_PATH}" >&2
+    exit 1
+  fi
+  if [ ! -L "${HOME_DIR}/.cursor-server" ] || \
+     [ "$(readlink "${HOME_DIR}/.cursor-server" 2>/dev/null || true)" != "${CURSOR_SERVER_PATH}" ]; then
+    rm -rf "${HOME_DIR}/.cursor-server"
+    ln -s "${CURSOR_SERVER_PATH}" "${HOME_DIR}/.cursor-server"
+  fi
+fi
+
 # Link the complete Codex data directory when mounted. This preserves auth,
 # config, sessions, history, and other Codex state across container recreation.
 if [ -e "${CODEX_DATA_PATH:-}" ]; then
