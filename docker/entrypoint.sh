@@ -292,6 +292,68 @@ fi
 
 configure_ssh_host_keys
 
+PROJECT_PID=""
+SSHD_PID=""
+SHUTTING_DOWN=0
+
+signal_process_group() {
+  local pid=$1
+  local signal=$2
+
+  if [ -n "${pid}" ]; then
+    # Both supervised services are started with setsid, so their leader PID is
+    # also their process-group ID. Signalling the group reaches runuser, the
+    # project script, and any children that the script has not yet reaped.
+    kill -s "${signal}" -- "-${pid}" 2>/dev/null || true
+  fi
+}
+
+wait_for_process() {
+  local pid=$1
+
+  if [ -n "${pid}" ]; then
+    wait "${pid}" 2>/dev/null || true
+  fi
+}
+
+wait_for_process_group() {
+  local pid=$1
+
+  if [ -n "${pid}" ]; then
+    # runuser can exit before a grandchild finishes its graceful shutdown.
+    # Keep PID 1 alive until every process that stayed in the service group is
+    # gone; Docker's stop timeout remains the upper bound for this wait.
+    while kill -0 -- "-${pid}" 2>/dev/null; do
+      sleep 0.1
+    done
+  fi
+}
+
+shutdown() {
+  local exit_status=$1
+  local signal=${2:-TERM}
+
+  if [ "${SHUTTING_DOWN}" -eq 1 ]; then
+    return
+  fi
+  SHUTTING_DOWN=1
+  trap '' TERM INT HUP
+
+  echo "stopping supervised services with signal ${signal}"
+  signal_process_group "${PROJECT_PID}" "${signal}"
+  signal_process_group "${SSHD_PID}" "${signal}"
+
+  wait_for_process "${PROJECT_PID}"
+  wait_for_process "${SSHD_PID}"
+  wait_for_process_group "${PROJECT_PID}"
+  wait_for_process_group "${SSHD_PID}"
+  exit "${exit_status}"
+}
+
+trap 'shutdown 0 TERM' TERM
+trap 'shutdown 0 INT' INT
+trap 'shutdown 0 HUP' HUP
+
 if [ -n "${PROJECT_STARTUP_SCRIPT}" ]; then
   if [ ! -f "${PROJECT_STARTUP_SCRIPT}" ]; then
     echo "PROJECT_STARTUP_SCRIPT does not point to a file: ${PROJECT_STARTUP_SCRIPT}" >&2
@@ -303,13 +365,37 @@ if [ -n "${PROJECT_STARTUP_SCRIPT}" ]; then
   fi
 
   echo "starting project startup script: ${PROJECT_STARTUP_SCRIPT}"
-  runuser -u "${CONTAINER_USER}" -- env \
+  setsid runuser -u "${CONTAINER_USER}" -- env \
     HOME="${HOME_DIR}" \
     USER="${CONTAINER_USER}" \
     LOGNAME="${CONTAINER_USER}" \
     PROJECT_ROOT="${PROJECT_ROOT}" \
     PATH="${PATH}" \
     bash "${PROJECT_STARTUP_SCRIPT}" &
+  PROJECT_PID=$!
 fi
 
-exec /usr/sbin/sshd -D -e
+setsid /usr/sbin/sshd -D -e &
+SSHD_PID=$!
+
+if [ -n "${PROJECT_PID}" ]; then
+  EXITED_PID=""
+  if wait -n -p EXITED_PID "${PROJECT_PID}" "${SSHD_PID}"; then
+    EXIT_STATUS=0
+  else
+    EXIT_STATUS=$?
+  fi
+
+  if [ "${EXITED_PID}" = "${PROJECT_PID}" ]; then
+    echo "project startup script exited with status ${EXIT_STATUS}; stopping sshd"
+  else
+    echo "sshd exited with status ${EXIT_STATUS}; stopping project startup script"
+  fi
+  shutdown "${EXIT_STATUS}" TERM
+fi
+
+if wait "${SSHD_PID}"; then
+  exit 0
+else
+  exit $?
+fi

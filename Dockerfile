@@ -83,6 +83,7 @@ COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 22
+STOPSIGNAL SIGTERM
 
 # Persistent writable directories. Host-managed state is mounted explicitly by the container manager.
 VOLUME ["/workspace", "/run/host/vscode-server", "/run/host/cursor-server"]

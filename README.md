@@ -166,6 +166,8 @@ PROXY=host.docker.internal PROXY_PORT=7890 \
 ```yaml
 services:
   remote-dev:
+    # 调整为不短于项目完成优雅停机所需的最长时间。
+    stop_grace_period: 2m
     environment:
       PROJECT_STARTUP_SCRIPT: /run/host/project-start.sh
     volumes:
@@ -195,7 +197,9 @@ trap 'kill "${backend_pid}" "${frontend_pid}" 2>/dev/null || true' EXIT TERM INT
 wait -n "${backend_pid}" "${frontend_pid}"
 ```
 
-启动脚本由入口脚本以 `CONTAINER_USER` 指定的开发用户运行，输出会进入容器日志。未设置 `PROJECT_STARTUP_SCRIPT` 时，容器只启动 SSH 服务。
+启动脚本由入口脚本以 `CONTAINER_USER` 指定的开发用户运行，输出会进入容器日志。入口脚本保持为容器 PID 1，并在收到 `TERM`、`INT` 或 `HUP` 时将信号转发给项目和 SSH 服务的独立进程组，等待它们退出。项目脚本或 `sshd` 任意一方提前退出时，入口脚本也会终止并等待另一方。未设置 `PROJECT_STARTUP_SCRIPT` 时，容器只监管 SSH 服务。
+
+`stop_grace_period` 应覆盖项目停止接收请求、排空调度任务以及注销外部服务所需的最长时间，并留出余量；超时后 Docker 仍会发送 `SIGKILL`。
 
 ## 构建与发布
 
