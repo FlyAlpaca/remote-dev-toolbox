@@ -28,7 +28,7 @@ RUN if [ -n "$PROXY" ]; then \
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && apt-get install -y --no-install-recommends \
-      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales libglib2.0-0 ripgrep util-linux tzdata chromium \
+      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales libglib2.0-0 ripgrep util-linux tzdata chromium vim iproute2 iputils-ping net-tools dnsutils netcat-openbsd traceroute \
  && sed -i '/^[# ]*en_US.UTF-8 UTF-8$/s/^# //' /etc/locale.gen \
  && locale-gen en_US.UTF-8 \
  && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
