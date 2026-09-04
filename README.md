@@ -44,6 +44,8 @@ tmux attach -t codex
 tmux ls
 ```
 
+镜像中的 `tmux` 命令会强制启用 UTF-8。这样即使 SSH 客户端或外层 Bash 转发了非 UTF-8 locale，Codex 输出中的中文也不会被 tmux 替换为下划线。
+
 ## 代理
 
 代理作为启动参数传入，不使用 `.env`。`PROXY` 填主机名或 IP，不包含 `http://`：

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# tmux replaces non-ASCII characters with underscores when a client is
+# detected as non-UTF-8. SSH clients can forward such a locale even though
+# the terminal itself supports UTF-8, so force UTF-8 for every tmux client.
+exec /usr/bin/tmux -u "$@"

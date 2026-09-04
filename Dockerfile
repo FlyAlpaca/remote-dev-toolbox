@@ -146,6 +146,10 @@ USER root
 
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 
+# Force UTF-8 output for every tmux client, including clients started from a
+# shell whose SSH-forwarded locale is not UTF-8.
+COPY --chmod=0755 docker/tmux /usr/local/bin/tmux
+
 # Apply the tmux defaults to every runtime user, including dynamically mapped users.
 COPY docker/tmux.conf /etc/tmux.conf
 
