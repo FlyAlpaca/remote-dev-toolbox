@@ -329,8 +329,7 @@ create_tmux_session() {
   echo "created tmux session: ${session_name}"
 }
 
-create_tmux_session pc
-create_tmux_session phone
+create_tmux_session codex
 
 PROJECT_PID=""
 SSHD_PID=""

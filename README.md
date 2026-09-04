@@ -32,11 +32,10 @@ ssh -p 2222 "$(id -un)@<docker-host>"
 
 ## tmux 会话
 
-镜像内置 tmux，并加载 `/etc/tmux.conf`。容器启动时会自动以开发用户身份创建 `pc` 和 `phone` 两个 detached 会话，登录容器后直接连接：
+镜像内置 tmux，并加载 `/etc/tmux.conf`。容器启动时会自动以开发用户身份创建 `codex` 一个 detached 会话，登录容器后直接连接：
 
 ```bash
-tmux attach -t pc
-tmux attach -t phone
+tmux attach -t codex
 ```
 
 查看会话：
