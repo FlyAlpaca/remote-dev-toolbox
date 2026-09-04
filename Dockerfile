@@ -130,6 +130,14 @@ RUN groupadd --gid "${USER_GID}" "${CONTAINER_USER}" \
 ENV NPM_CONFIG_PREFIX=/opt/npm-global
 ENV PATH=/opt/npm-global/bin:$CONDA_DIR/bin:$PATH
 
+# Keep npm-installed CLI tools available in SSH, VS Code Remote SSH, and tmux
+# login shells, which may initialize PATH independently of the image ENV.
+RUN printf '%s\n' \
+      'export PATH="/opt/npm-global/bin:$PATH"' \
+      'export NPM_CONFIG_PREFIX="/opt/npm-global"' \
+      > /etc/profile.d/20-codex.sh \
+ && chmod 0644 /etc/profile.d/20-codex.sh
+
 # Install OpenAI Codex globally as the non-root bootstrap user.
 USER ${CONTAINER_USER}
 RUN HOME="/home/${CONTAINER_USER}" npm install -g @openai/codex \

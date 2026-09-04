@@ -23,9 +23,9 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 if ! command -v codex >/dev/null 2>&1; then
-  echo "warning: codex not found" >&2
-elif ! codex --version; then
-  echo "warning: codex --version failed" >&2
+  echo "warning: codex command not found" >&2
+else
+  echo "codex: $(codex --version)"
 fi
 
 configure_proxy() {
