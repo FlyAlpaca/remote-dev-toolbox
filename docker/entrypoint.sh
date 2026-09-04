@@ -14,11 +14,18 @@ NPM_GLOBAL_DIR=/opt/npm-global
 # Keep npm's global package location fixed and writable by the runtime user.
 # The directory is part of the image, so its ownership must be remapped when
 # USER_UID/USER_GID differ from the build-time defaults.
-export NPM_CONFIG_PREFIX="${NPM_GLOBAL_DIR}"
+export PATH="/opt/npm-global/bin:${PATH}"
+export NPM_CONFIG_PREFIX="/opt/npm-global"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "entrypoint must run as root so it can configure the SSH user" >&2
   exit 1
+fi
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "warning: codex not found" >&2
+elif ! codex --version; then
+  echo "warning: codex --version failed" >&2
 fi
 
 configure_proxy() {
