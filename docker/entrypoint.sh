@@ -324,6 +324,8 @@ create_tmux_session() {
     HOME="${HOME_DIR}" \
     USER="${CONTAINER_USER}" \
     LOGNAME="${CONTAINER_USER}" \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
     PATH="${PATH}" \
     tmux new-session -d -s "${session_name}" -c "${PROJECT_ROOT}"
   echo "created tmux session: ${session_name}"
