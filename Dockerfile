@@ -138,9 +138,10 @@ RUN printf '%s\n' \
       > /etc/profile.d/20-codex.sh \
  && chmod 0644 /etc/profile.d/20-codex.sh
 
-# Install OpenAI Codex globally as the non-root bootstrap user.
+# Install OpenAI Codex and its authentication helper globally as the non-root
+# bootstrap user.
 USER ${CONTAINER_USER}
-RUN HOME="/home/${CONTAINER_USER}" npm install -g @openai/codex \
+RUN HOME="/home/${CONTAINER_USER}" npm install -g @openai/codex @loongphy/codex-auth \
  && HOME="/home/${CONTAINER_USER}" npm cache clean --force
 USER root
 

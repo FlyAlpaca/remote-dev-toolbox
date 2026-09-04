@@ -1,6 +1,6 @@
 # Debian Remote Development Toolbox
 
-基于 `debian:bookworm-slim` 的 SSH 远程开发镜像，内置 Git、编译工具、Vim、tmux、网络调试工具、Miniconda、Node.js/npm 和 `@openai/codex`。镜像构建时准备开发用户，容器启动时再按宿主机 UID/GID 调整实际开发用户，SSH 仅允许公钥认证。
+基于 `debian:bookworm-slim` 的 SSH 远程开发镜像，内置 Git、编译工具、Vim、tmux、网络调试工具、Miniconda、Node.js/npm、`@openai/codex` 和 `@loongphy/codex-auth`。镜像构建时准备开发用户，容器启动时再按宿主机 UID/GID 调整实际开发用户，SSH 仅允许公钥认证。
 
 ## 快速开始
 
