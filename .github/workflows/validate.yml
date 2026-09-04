@@ -1,0 +1,31 @@
+name: Validate container image
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Validate shell syntax
+        run: bash -n docker/entrypoint.sh
+
+      - name: Validate Compose configuration
+        run: docker compose config -q
+
+      - name: Run Docker build checks
+        run: docker buildx build --check .

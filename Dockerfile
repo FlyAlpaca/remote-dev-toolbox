@@ -1,3 +1,5 @@
+# check=error=true
+
 FROM debian:bookworm-slim
 
 ARG PROXY=""
@@ -16,19 +18,47 @@ ENV CONTAINER_USER=dev \
     SSH_HOST_KEYS_PATH=/run/host/ssh-host-keys \
     SSH_USER_DATA_PATH=/run/host/user-ssh \
     VSCODE_SERVER_PATH=/run/host/vscode-server \
-    CURSOR_SERVER_PATH=/run/host/cursor-server \
     CODEX_DATA_PATH=/run/host/codex \
     PROJECT_STARTUP_SCRIPT= \
     HOST_SHADOW_PATH=/run/host/shadow
 
-# Configure apt proxy if provided
-RUN if [ -n "$PROXY" ]; then \
-      echo "Acquire::http::Proxy \"http://$PROXY:$PROXY_PORT\";" > /etc/apt/apt.conf.d/95proxy; \
+# Configure the build-time APT proxy when both arguments are provided.
+RUN if [ -n "${PROXY}${PROXY_PORT}" ]; then \
+      test -n "${PROXY}" && test -n "${PROXY_PORT}"; \
+      printf '%s' "${PROXY}" | grep -Eq '^(\[[0-9A-Fa-f:]+\]|[A-Za-z0-9._-]+)$'; \
+      printf '%s' "${PROXY_PORT}" | grep -Eq '^[0-9]+$'; \
+      test "${PROXY_PORT}" -ge 1 && test "${PROXY_PORT}" -le 65535; \
+      printf 'Acquire::http::Proxy "http://%s:%s";\nAcquire::https::Proxy "http://%s:%s";\n' \
+        "${PROXY}" "${PROXY_PORT}" "${PROXY}" "${PROXY_PORT}" \
+        > /etc/apt/apt.conf.d/95proxy; \
     fi
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update \
  && apt-get install -y --no-install-recommends \
-      openssh-server sudo git bash-completion curl wget ca-certificates gnupg build-essential passwd locales libglib2.0-0 ripgrep util-linux tzdata chromium vim iproute2 iputils-ping net-tools dnsutils netcat-openbsd traceroute \
+      bash-completion \
+      build-essential \
+      ca-certificates \
+      chromium \
+      curl \
+      dnsutils \
+      git \
+      gnupg \
+      iproute2 \
+      iputils-ping \
+      libglib2.0-0 \
+      locales \
+      net-tools \
+      netcat-openbsd \
+      openssh-server \
+      passwd \
+      ripgrep \
+      sudo \
+      tmux \
+      traceroute \
+      tzdata \
+      util-linux \
+      vim \
+      wget \
  && sed -i '/^[# ]*en_US.UTF-8 UTF-8$/s/^# //' /etc/locale.gen \
  && locale-gen en_US.UTF-8 \
  && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
@@ -70,23 +100,54 @@ RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_6
 
 ENV PATH=$CONDA_DIR/bin:$PATH
 
-# Install Node.js (includes npm)
-RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
- && apt-get update && apt-get install -y nodejs \
+# Install Node.js (includes npm) from the signed NodeSource repository without
+# executing a downloaded setup script.
+RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+      | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg \
+ && chmod 0644 /usr/share/keyrings/nodesource.gpg \
+ && printf '%s\n' \
+      'Types: deb' \
+      'URIs: https://deb.nodesource.com/node_24.x' \
+      'Suites: nodistro' \
+      'Components: main' \
+      'Architectures: amd64' \
+      'Signed-By: /usr/share/keyrings/nodesource.gpg' \
+      > /etc/apt/sources.list.d/nodesource.sources \
+ && DEBIAN_FRONTEND=noninteractive apt-get update \
+ && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/*
 
-# Install OpenAI Codex globally
-RUN npm install -g @openai/codex \
- && npm cache clean --force
+# Prepare a user-writable global npm prefix. The entrypoint keeps the image
+# running as root long enough to map the runtime user to the host UID/GID.
+# This bootstrap user only owns the packages installed during the image build.
+RUN groupadd --gid "${USER_GID}" "${CONTAINER_USER}" \
+ && useradd --uid "${USER_UID}" --gid "${USER_GID}" \
+      --create-home --home-dir "/home/${CONTAINER_USER}" \
+      --shell /bin/bash "${CONTAINER_USER}" \
+ && mkdir -p /opt/npm-global \
+ && chown -R "${USER_UID}:${USER_GID}" /opt/npm-global
 
-COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+ENV NPM_CONFIG_PREFIX=/opt/npm-global
+ENV PATH=/opt/npm-global/bin:$CONDA_DIR/bin:$PATH
+
+# Install OpenAI Codex globally as the non-root bootstrap user.
+USER ${CONTAINER_USER}
+RUN HOME="/home/${CONTAINER_USER}" npm install -g @openai/codex \
+ && HOME="/home/${CONTAINER_USER}" npm cache clean --force
+USER root
+
+COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# Apply the tmux defaults to every runtime user, including dynamically mapped users.
+COPY docker/tmux.conf /etc/tmux.conf
 
 EXPOSE 22
 STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD ["bash", "-c", "/usr/sbin/sshd -t && nc -z 127.0.0.1 22"]
 
 # Persistent writable directories. Host-managed state is mounted explicitly by the container manager.
-VOLUME ["/workspace", "/run/host/vscode-server", "/run/host/cursor-server"]
+VOLUME ["/workspace", "/run/host/vscode-server"]
 
 WORKDIR ${PROJECT_ROOT}
 CMD ["/usr/local/bin/entrypoint.sh"]
