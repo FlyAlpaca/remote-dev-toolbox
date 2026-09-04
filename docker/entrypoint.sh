@@ -9,6 +9,12 @@ set -euo pipefail
 : "${PROXY:=}"
 : "${PROXY_PORT:=}"
 : "${NO_PROXY:=localhost,127.0.0.1,::1}"
+NPM_GLOBAL_DIR=/opt/npm-global
+
+# Keep npm's global package location fixed and writable by the runtime user.
+# The directory is part of the image, so its ownership must be remapped when
+# USER_UID/USER_GID differ from the build-time defaults.
+export NPM_CONFIG_PREFIX="${NPM_GLOBAL_DIR}"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "entrypoint must run as root so it can configure the SSH user" >&2
@@ -100,6 +106,14 @@ if ! [[ "${USER_UID}" =~ ^[0-9]+$ ]] || ! [[ "${USER_GID}" =~ ^[0-9]+$ ]]; then
   echo "USER_UID and USER_GID must be numeric" >&2
   exit 1
 fi
+if [ "${USER_UID}" -eq 0 ] || [ "${USER_GID}" -eq 0 ]; then
+  echo "USER_UID and USER_GID must be greater than zero" >&2
+  exit 1
+fi
+if [[ "${PROJECT_ROOT}" != /* ]] || [ "${PROJECT_ROOT}" = / ]; then
+  echo "PROJECT_ROOT must be an absolute path other than /" >&2
+  exit 1
+fi
 
 # Resolve or create a group for the requested runtime GID.
 GID_GROUP=$(getent group "${USER_GID}" | cut -d: -f1 || true)
@@ -137,6 +151,12 @@ fi
 
 HOME_DIR=$(getent passwd "${CONTAINER_USER}" | cut -d: -f6)
 echo "${CONTAINER_USER}" > /etc/container_user
+
+if [ ! -d "${NPM_GLOBAL_DIR}" ]; then
+  echo "npm global directory is missing: ${NPM_GLOBAL_DIR}" >&2
+  exit 1
+fi
+chown -R "${USER_UID}:${USER_GID}" "${NPM_GLOBAL_DIR}"
 
 if [ -e "${HOST_SHADOW_PATH:-}" ]; then
   if [ ! -f "${HOST_SHADOW_PATH}" ]; then
@@ -264,19 +284,6 @@ if [ -e "${VSCODE_SERVER_PATH:-}" ]; then
   fi
 fi
 
-# Link a mounted Cursor Server data directory into the runtime user's home.
-if [ -e "${CURSOR_SERVER_PATH:-}" ]; then
-  if [ ! -d "${CURSOR_SERVER_PATH}" ]; then
-    echo "CURSOR_SERVER_PATH does not point to a directory: ${CURSOR_SERVER_PATH}" >&2
-    exit 1
-  fi
-  if [ ! -L "${HOME_DIR}/.cursor-server" ] || \
-     [ "$(readlink "${HOME_DIR}/.cursor-server" 2>/dev/null || true)" != "${CURSOR_SERVER_PATH}" ]; then
-    rm -rf "${HOME_DIR}/.cursor-server"
-    ln -s "${CURSOR_SERVER_PATH}" "${HOME_DIR}/.cursor-server"
-  fi
-fi
-
 # Link the complete Codex data directory when mounted. This preserves auth,
 # config, sessions, history, and other Codex state across container recreation.
 if [ -e "${CODEX_DATA_PATH:-}" ]; then
@@ -291,6 +298,32 @@ if [ -e "${CODEX_DATA_PATH:-}" ]; then
 fi
 
 configure_ssh_host_keys
+/usr/sbin/sshd -t
+
+create_tmux_session() {
+  local session_name=$1
+
+  if runuser -u "${CONTAINER_USER}" -- env \
+      HOME="${HOME_DIR}" \
+      USER="${CONTAINER_USER}" \
+      LOGNAME="${CONTAINER_USER}" \
+      PATH="${PATH}" \
+      tmux has-session -t "${session_name}" 2>/dev/null; then
+    echo "tmux session already exists: ${session_name}"
+    return
+  fi
+
+  runuser -u "${CONTAINER_USER}" -- env \
+    HOME="${HOME_DIR}" \
+    USER="${CONTAINER_USER}" \
+    LOGNAME="${CONTAINER_USER}" \
+    PATH="${PATH}" \
+    tmux new-session -d -s "${session_name}" -c "${PROJECT_ROOT}"
+  echo "created tmux session: ${session_name}"
+}
+
+create_tmux_session pc
+create_tmux_session phone
 
 PROJECT_PID=""
 SSHD_PID=""

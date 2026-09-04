@@ -2,6 +2,12 @@
 .github
 .vscode
 .idea
+.codex
+.vscode-server
+workspace
+README.md
+LICENSE
+compose.yaml
 
 *.log
 *.tmp

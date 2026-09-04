@@ -1,0 +1,28 @@
+services:
+  remote-dev:
+    build:
+      context: .
+      args:
+        PROXY: ${PROXY:-}
+        PROXY_PORT: ${PROXY_PORT:-}
+    image: remote-dev-toolbox:local
+    container_name: remote-dev
+    restart: unless-stopped
+    stop_grace_period: 2m
+    ports:
+      - "${SSH_PORT:-2222}:22"
+    environment:
+      CONTAINER_USER: ${CONTAINER_USER:-dev}
+      USER_UID: ${USER_UID:-1000}
+      USER_GID: ${USER_GID:-1000}
+      CONTAINER_PROMPT: ${CONTAINER_PROMPT:-remote-dev}
+      PROXY: ${PROXY:-}
+      PROXY_PORT: ${PROXY_PORT:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1}
+    volumes:
+      - ./workspace:/workspace
+      - ./authorized_keys:/run/host/authorized_keys:ro
+      - ./ssh-host-keys:/run/host/ssh-host-keys
+      - ./user-ssh:/run/host/user-ssh
+      - ./.vscode-server:/run/host/vscode-server
+      - ./.codex:/run/host/codex

@@ -1,38 +1,57 @@
 # Debian Remote Development Toolbox
 
-基于 `debian:bookworm-slim` 的 SSH 远程开发镜像，内置 Git、编译工具、Vim、网络调试工具、Miniconda、Node.js/npm 和 `@openai/codex`。容器启动时创建指定的开发用户，SSH 仅允许公钥认证。
+基于 `debian:bookworm-slim` 的 SSH 远程开发镜像，内置 Git、编译工具、Vim、tmux、网络调试工具、Miniconda、Node.js/npm 和 `@openai/codex`。镜像构建时准备开发用户，容器启动时再按宿主机 UID/GID 调整实际开发用户，SSH 仅允许公钥认证。
 
 ## 快速开始
 
 在仓库根目录准备挂载源：
 
 ```bash
-mkdir -p workspace .vscode-server .cursor-server ssh-host-keys user-ssh .codex
-test -f authorized_keys
-test -d .codex
+mkdir -p workspace .vscode-server ssh-host-keys user-ssh .codex
+cp "$HOME/.ssh/id_ed25519.pub" authorized_keys
+chmod 600 authorized_keys
 ```
+
+如果使用的不是 `~/.ssh/id_ed25519.pub`，请替换为实际用于登录的 SSH 公钥文件。
 
 构建并启动：
 
 ```bash
-docker compose up -d --build
+CONTAINER_USER="$(id -un)" USER_UID="$(id -u)" USER_GID="$(id -g)" \
+  docker compose up -d --build
 docker compose logs -f remote-dev
 ```
 
 连接 SSH：
 
 ```bash
-ssh -p 2222 dev@<docker-host>
+ssh -p 2222 "$(id -un)@<docker-host>"
 ```
 
-在 VS Code 或 Cursor 中将同一 SSH 主机添加到 `Remote-SSH` 即可连接。
+在 VS Code 中将同一 SSH 主机添加到 `Remote-SSH` 即可连接。
+
+## tmux 会话
+
+镜像内置 tmux，并加载 `/etc/tmux.conf`。容器启动时会自动以开发用户身份创建 `pc` 和 `phone` 两个 detached 会话，登录容器后直接连接：
+
+```bash
+tmux attach -t pc
+tmux attach -t phone
+```
+
+查看会话：
+
+```bash
+tmux ls
+```
 
 ## 代理
 
 代理作为启动参数传入，不使用 `.env`。`PROXY` 填主机名或 IP，不包含 `http://`：
 
 ```bash
-PROXY=host.docker.internal PROXY_PORT=7890 \
+CONTAINER_USER="$(id -un)" USER_UID="$(id -u)" USER_GID="$(id -g)" \
+  PROXY=host.docker.internal PROXY_PORT=7890 \
   docker compose up -d --build --force-recreate
 ```
 
@@ -58,8 +77,8 @@ docker compose exec remote-dev bash -lc 'env | grep -i _proxy; curl -v https://w
 | `SSH_HOST_KEYS_PATH` | `/run/host/ssh-host-keys` | 持久化 SSH 服务端身份的密钥目录 |
 | `SSH_USER_DATA_PATH` | `/run/host/user-ssh` | 持久化开发用户的 `~/.ssh` 目录 |
 | `VSCODE_SERVER_PATH` | `/run/host/vscode-server` | 持久化开发用户的 `~/.vscode-server` |
-| `CURSOR_SERVER_PATH` | `/run/host/cursor-server` | 持久化开发用户的 `~/.cursor-server` |
 | `CODEX_DATA_PATH` | `/run/host/codex` | 持久化开发用户的 `~/.codex`，包括配置、会话和凭据 |
+| `NPM_CONFIG_PREFIX` | `/opt/npm-global` | 普通用户可写的全局 npm 包目录 |
 | `PROXY` / `PROXY_PORT` | 空 | HTTP(S) 代理主机和端口 |
 | `NO_PROXY` | `localhost,127.0.0.1,::1` | 不经过代理的地址 |
 
@@ -72,16 +91,17 @@ docker compose exec remote-dev bash -lc 'env | grep -i _proxy; curl -v https://w
 | `./ssh-host-keys` | `/run/host/ssh-host-keys` | 读写，仅宿主机管理员可访问 |
 | `./user-ssh` | `/run/host/user-ssh` | 读写，开发用户的密钥与 SSH 配置 |
 | `./.vscode-server` | `/run/host/vscode-server` | 读写 |
-| `./.cursor-server` | `/run/host/cursor-server` | 读写 |
 | `./.codex` | `/run/host/codex` | 读写，Codex 配置、会话和凭据 |
 
 图形化 Docker 管理器使用相同的环境变量和映射即可；容器保持以 root 启动，入口脚本会创建实际开发用户。不要覆盖镜像默认命令。
+
+全局 npm 包安装在 `/opt/npm-global`，启动时会将该目录交给实际开发用户。因此容器内执行 `npm install -g <package>` 或更新 Codex 不需要管理员权限；Node.js/npm 的系统安装本身仍属于镜像构建内容，需要重新构建镜像才能更新。
 
 首次启动时，入口脚本会在挂载的 `ssh-host-keys` 目录生成 SSH 主机密钥；以后重建容器会继续使用同一套密钥，客户端的 `known_hosts` 不会再因重建而失效。该目录包含服务端私钥，不要提交到 Git、共享给其他服务器或以只读方式挂载。若未挂载 `SSH_HOST_KEYS_PATH`，主机密钥会在容器启动时生成并只保存在容器文件系统中，重建容器后会改变。镜像本身不包含主机私钥，避免多个新容器意外共享同一身份。
 
 挂载 `user-ssh` 后，开发用户的 `~/.ssh` 会链接到该目录，`ssh-keygen` 生成的 `id_rsa`、`id_ed25519`、对应公钥、`known_hosts` 和 `config` 都会跨容器重建保留。这里保存的是开发用户对外连接使用的客户端密钥，不要与 `ssh-host-keys` 中的服务端身份密钥混用。
 
-挂载 `.vscode-server` 或 `.cursor-server` 后，开发用户的 `~/.vscode-server` / `~/.cursor-server` 会链接到对应目录，远程扩展与服务器二进制会跨容器重建保留。
+挂载 `.vscode-server` 后，开发用户的 `~/.vscode-server` 会链接到对应目录，远程扩展与服务器二进制会跨容器重建保留。
 
 挂载 `.codex` 后，开发用户的 `~/.codex` 会链接到该目录，Codex 的配置、会话、历史记录、登录凭据和其他运行状态都会跨容器重建保留。该目录包含敏感信息，建议仅当前用户可访问（例如 `chmod 700 "$HOME/.codex"`），不要提交到 Git 或共享给其他用户。
 
@@ -91,7 +111,7 @@ docker compose exec remote-dev bash -lc 'env | grep -i _proxy; curl -v https://w
 
 ```bash
 mkdir -p "$HOME/.remote-dev/ssh-host-keys" "$HOME/.remote-dev/user-ssh" \
-  "$HOME/.vscode-server" "$HOME/.cursor-server" "$HOME/.codex"
+  "$HOME/.vscode-server" "$HOME/.codex"
 docker run -d \
   --name remote-dev \
   --restart unless-stopped \
@@ -106,58 +126,26 @@ docker run -d \
   -v "$HOME/.remote-dev/ssh-host-keys:/run/host/ssh-host-keys" \
   -v "$HOME/.remote-dev/user-ssh:/run/host/user-ssh" \
   -v "$HOME/.vscode-server:/run/host/vscode-server" \
-  -v "$HOME/.cursor-server:/run/host/cursor-server" \
   -v "$HOME/.codex:/run/host/codex" \
-  remote-dev-toolbox:1.0.21
+  remote-dev-toolbox:local
 ```
 
 如果不需要代理，删除两行 `PROXY` 参数即可。
 
 ## Compose 配置
 
-将以下内容保存为 `compose.yaml`：
-
-```yaml
-services:
-  remote-dev:
-    build: .
-    image: remote-dev-toolbox:1.0.21
-    container_name: remote-dev
-    restart: unless-stopped
-    ports:
-      - "2222:22"
-    environment:
-      CONTAINER_USER: ${CONTAINER_USER:-dev}
-      USER_UID: ${USER_UID:-1000}
-      USER_GID: ${USER_GID:-1000}
-      CONTAINER_PROMPT: ${CONTAINER_PROMPT:-remote-dev}
-      PROXY: ${PROXY:-host.docker.internal}
-      PROXY_PORT: ${PROXY_PORT:-7890}
-    volumes:
-      - ${HOME}/projects/example:/workspace
-      - ${HOME}/.ssh/authorized_keys:/run/host/authorized_keys:ro
-      - ${HOME}/.remote-dev/ssh-host-keys:/run/host/ssh-host-keys
-      - ${HOME}/.remote-dev/user-ssh:/run/host/user-ssh
-      - ${HOME}/.vscode-server:/run/host/vscode-server
-      - ${HOME}/.cursor-server:/run/host/cursor-server
-      - ${HOME}/.codex:/run/host/codex
-    security_opt:
-      - no-new-privileges:false
-```
-
-准备目录后启动。使用命令行传入的变量可以确保容器用户与当前宿主机用户一致：
+仓库已提供可直接使用的 `compose.yaml`，默认把仓库内的 `workspace` 和各持久化目录挂载到容器。可通过环境变量调整 SSH 端口、用户和代理：
 
 ```bash
-mkdir -p "$HOME/.remote-dev/ssh-host-keys" "$HOME/.remote-dev/user-ssh" \
-  "$HOME/.vscode-server" "$HOME/.cursor-server" "$HOME/.codex"
 CONTAINER_USER="$(id -un)" \
 USER_UID="$(id -u)" \
 USER_GID="$(id -g)" \
+SSH_PORT=2222 \
 PROXY=host.docker.internal PROXY_PORT=7890 \
-  docker compose up -d
+  docker compose up -d --build
 ```
 
-如果不需要代理，可删除 `PROXY` 和 `PROXY_PORT` 两个环境变量，并从配置中删除对应的 `environment` 项。
+如果不需要代理，删除 `PROXY` 和 `PROXY_PORT` 两个命令行变量即可。Compose 会把代理同时用于镜像构建与容器运行。默认 SSH 端口会监听宿主机全部网卡；只允许本机连接时，将 `compose.yaml` 中的端口映射改为 `127.0.0.1:${SSH_PORT:-2222}:22`。
 
 ## 项目启动脚本
 
@@ -204,13 +192,13 @@ wait -n "${backend_pid}" "${frontend_pid}"
 ## 构建与发布
 
 ```bash
-docker build -t remote-dev-toolbox:1.0.21 .
+docker build -t remote-dev-toolbox:local .
 ```
 
 构建阶段需要 APT 代理时：
 
 ```bash
-docker build -t remote-dev-toolbox:1.0.21 \
+docker build -t remote-dev-toolbox:local \
   --build-arg PROXY=<proxy-host> \
   --build-arg PROXY_PORT=<proxy-port> .
 ```
@@ -222,6 +210,7 @@ docker build -t remote-dev-toolbox:1.0.21 \
 ```bash
 docker ps -a
 docker logs remote-dev
+docker inspect --format '{{.State.Health.Status}}' remote-dev
 docker exec remote-dev sh -lc 'cat /etc/container_user; conda --version; node --version; codex --version'
 ```
 
