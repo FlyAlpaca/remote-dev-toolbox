@@ -45,6 +45,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
       gnupg \
       iproute2 \
       iputils-ping \
+      jq \
       libglib2.0-0 \
       locales \
       net-tools \
@@ -99,6 +100,9 @@ RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_6
  && ln -s "$CONDA_DIR/etc/profile.d/conda.sh" /etc/profile.d/conda.sh
 
 ENV PATH=$CONDA_DIR/bin:$PATH
+
+# Install PyYAML into the shared base Python environment.
+RUN python -m pip install --no-cache-dir pyyaml
 
 # Install Node.js (includes npm) from the signed NodeSource repository without
 # executing a downloaded setup script.
