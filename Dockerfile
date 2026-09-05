@@ -52,6 +52,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
       netcat-openbsd \
       openssh-server \
       passwd \
+      python3-yaml \
       ripgrep \
       sudo \
       tmux \
@@ -99,10 +100,9 @@ RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_6
  && find "$CONDA_DIR" -follow -type f -name '*.pyc' -delete \
  && ln -s "$CONDA_DIR/etc/profile.d/conda.sh" /etc/profile.d/conda.sh
 
-ENV PATH=$CONDA_DIR/bin:$PATH
-
-# Install PyYAML into the shared base Python environment.
-RUN python -m pip install --no-cache-dir pyyaml
+# Keep the system Python 3 as the global default. PyYAML is installed by the
+# Debian package above; Miniconda remains available through /opt/conda when a
+# project explicitly needs it.
 
 # Install Node.js (includes npm) from the signed NodeSource repository without
 # executing a downloaded setup script.
@@ -132,7 +132,7 @@ RUN groupadd --gid "${USER_GID}" "${CONTAINER_USER}" \
  && chown -R "${USER_UID}:${USER_GID}" /opt/npm-global
 
 ENV NPM_CONFIG_PREFIX=/opt/npm-global
-ENV PATH=/opt/npm-global/bin:$CONDA_DIR/bin:$PATH
+ENV PATH=/opt/npm-global/bin:$PATH
 
 # Keep npm-installed CLI tools available in SSH, VS Code Remote SSH, and tmux
 # login shells, which may initialize PATH independently of the image ENV.
