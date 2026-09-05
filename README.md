@@ -1,6 +1,6 @@
 # Debian Remote Development Toolbox
 
-基于 `debian:bookworm-slim` 的 SSH 远程开发镜像，内置 Git、编译工具、Vim、tmux、网络调试工具、`jq`、Miniconda、Python `pyyaml`、Node.js/npm、`@openai/codex` 和 `@loongphy/codex-auth`。镜像构建时准备开发用户，容器启动时再按宿主机 UID/GID 调整实际开发用户，SSH 仅允许公钥认证。
+基于 `debian:bookworm-slim` 的 SSH 远程开发镜像，内置 Git、编译工具、Vim、tmux、网络调试工具、`jq`、系统 Python 3 与 PyYAML、Miniconda、Node.js/npm、`@openai/codex` 和 `@loongphy/codex-auth`。全局 `python3` 使用系统 Python；Miniconda 保留在 `/opt/conda`，供项目按需显式使用。镜像构建时准备开发用户，容器启动时再按宿主机 UID/GID 调整实际开发用户，SSH 仅允许公钥认证。
 
 ## 快速开始
 
@@ -212,7 +212,7 @@ docker build -t remote-dev-toolbox:local \
 docker ps -a
 docker logs remote-dev
 docker inspect --format '{{.State.Health.Status}}' remote-dev
-docker exec remote-dev sh -lc 'cat /etc/container_user; conda --version; node --version; codex --version'
+docker exec remote-dev sh -lc 'cat /etc/container_user; python3 -c "import yaml; print(yaml.__version__)"; /opt/conda/bin/conda --version; node --version; codex --version'
 ```
 
 - `Exited (1)`：先查看日志；常见原因是容器没有以 root 启动、用户 UID/GID 无效，或挂载路径类型错误。
