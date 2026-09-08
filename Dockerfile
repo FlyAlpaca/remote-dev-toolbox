@@ -52,6 +52,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
       netcat-openbsd \
       openssh-server \
       passwd \
+      postgresql \
       python3-yaml \
       ripgrep \
       sudo \
