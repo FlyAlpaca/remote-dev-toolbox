@@ -30,6 +30,8 @@ ssh -p 2222 "$(id -un)@<docker-host>"
 
 在 VS Code 中将同一 SSH 主机添加到 `Remote-SSH` 即可连接。
 
+镜像启用 Debian 自带 `.bashrc` 的 `force_color_prompt=yes`，让支持颜色的 SSH/tmux 终端显示彩色用户、主机和目录，`ls` 沿用原有自动颜色配置。升级时重新构建并重建容器，再重新连接 SSH；已有用户的默认 `.bashrc` 也会启用此选项。
+
 ## tmux 会话
 
 镜像内置 tmux，并加载 `/etc/tmux.conf`。容器启动时会自动以开发用户身份创建 `codex` 一个 detached 会话，登录容器后直接连接：
