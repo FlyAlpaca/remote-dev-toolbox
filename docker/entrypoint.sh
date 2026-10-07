@@ -159,6 +159,11 @@ fi
 HOME_DIR=$(getent passwd "${CONTAINER_USER}" | cut -d: -f6)
 echo "${CONTAINER_USER}" > /etc/container_user
 
+# Enable the same Debian color prompt for reused runtime accounts.
+if [ -f "${HOME_DIR}/.bashrc" ]; then
+  sed -i 's/^#force_color_prompt=yes$/force_color_prompt=yes/' "${HOME_DIR}/.bashrc"
+fi
+
 if [ ! -d "${NPM_GLOBAL_DIR}" ]; then
   echo "npm global directory is missing: ${NPM_GLOBAL_DIR}" >&2
   exit 1

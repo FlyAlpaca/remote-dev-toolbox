@@ -72,6 +72,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
 # Display UTF-8 paths (including Chinese filenames) directly in Git output.
 RUN git config --system core.quotePath false
 
+# Enable Debian's existing color prompt when the terminal supports it.
+RUN sed -i 's/^#force_color_prompt=yes$/force_color_prompt=yes/' /etc/skel/.bashrc
+
 RUN printf '%s\n' \
     '' \
     '# Container prompt' \
